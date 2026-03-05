@@ -33,7 +33,7 @@ public class User {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public User(String username, String password, String nickname) {
+    public User(String username, String password) {
         this.username = username;
         this.password = password;
     }
