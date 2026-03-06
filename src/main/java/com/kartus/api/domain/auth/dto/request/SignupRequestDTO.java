@@ -13,6 +13,11 @@ public record SignupRequestDTO(
         @NotBlank(message = "Password is required")
         @Size(min = 6, max = 20, message = "Password must be between 6 and 20 characters")
         @Pattern(regexp = "^[a-zA-Z0-9!@#$%^&*]+$", message = "Password may contain only letters, numbers, and !@#$%^&*")
-        String password
+        String password,
+
+        @NotBlank(message = "Nickname is required")
+        @Size(min = 2, max = 12, message = "Nickname must be between 2 and 12 characters")
+        @Pattern(regexp = "^[a-zA-Z0-9가-힣]+$", message = "Nickname may contain only letters and numbers")
+        String nickname
 ) {
 }
