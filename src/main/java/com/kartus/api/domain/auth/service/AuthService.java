@@ -39,7 +39,11 @@ public class AuthService {
             throw new CustomException(UserErrorCode.DUPLICATE_USERNAME);
         }
 
-        User user = new User(dto.username(), passwordEncoder.encode(dto.password()));
+        if (userRepository.existsByNickname(dto.nickname())) {
+            throw new CustomException(UserErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        User user = new User(dto.username(), passwordEncoder.encode(dto.password()), dto.nickname());
 
         userRepository.save(user);
     }
