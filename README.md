@@ -36,3 +36,12 @@ CREATE TABLE refresh_tokens (
   INDEX idx_token (token)
  );
 ```
+### tracks
+```sql
+ CREATE TABLE tracks (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(30) NOT NULL,
+  track_hash CHAR(64) NOT NULL,
+  track_data JSON NOT NULL
+  );
+```
