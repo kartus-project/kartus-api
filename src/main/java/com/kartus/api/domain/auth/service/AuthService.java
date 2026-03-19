@@ -3,7 +3,8 @@ package com.kartus.api.domain.auth.service;
 import com.kartus.api.domain.auth.dto.request.LoginRequestDTO;
 import com.kartus.api.domain.auth.dto.request.RefreshRequestDTO;
 import com.kartus.api.domain.auth.dto.request.SignupRequestDTO;
-import com.kartus.api.domain.auth.dto.response.AuthResponseDTO;
+import com.kartus.api.domain.auth.dto.response.LoginResponseDTO;
+import com.kartus.api.domain.auth.dto.response.RefreshResponseDTO;
 import com.kartus.api.domain.auth.entity.RefreshToken;
 import com.kartus.api.domain.auth.error.AuthErrorCode;
 import com.kartus.api.domain.user.entity.User;
@@ -49,7 +50,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponseDTO login(LoginRequestDTO dto) {
+    public LoginResponseDTO login(LoginRequestDTO dto) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(dto.username(), dto.password())
         );
@@ -64,11 +65,11 @@ public class AuthService {
 
         refreshTokenService.saveOrUpdate(user, refreshToken);
 
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return new LoginResponseDTO(userPrincipal.getUser().getNickname(), accessToken, refreshToken);
     }
 
     @Transactional
-    public AuthResponseDTO refresh(RefreshRequestDTO dto) {
+    public RefreshResponseDTO refresh(RefreshRequestDTO dto) {
         if (!tokenProvider.validateToken(dto.refreshToken())) {
             throw new CustomException(AuthErrorCode.INVALID_TOKEN);
         }
@@ -81,7 +82,7 @@ public class AuthService {
 
         refreshTokenService.saveOrUpdate(rf.getUser(), refreshToken);
 
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return new RefreshResponseDTO(accessToken, refreshToken);
     }
 
     @Transactional
