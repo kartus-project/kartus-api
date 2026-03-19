@@ -3,7 +3,8 @@ package com.kartus.api.domain.auth.controller;
 import com.kartus.api.domain.auth.dto.request.LoginRequestDTO;
 import com.kartus.api.domain.auth.dto.request.RefreshRequestDTO;
 import com.kartus.api.domain.auth.dto.request.SignupRequestDTO;
-import com.kartus.api.domain.auth.dto.response.AuthResponseDTO;
+import com.kartus.api.domain.auth.dto.response.LoginResponseDTO;
+import com.kartus.api.domain.auth.dto.response.RefreshResponseDTO;
 import com.kartus.api.domain.auth.service.AuthService;
 import com.kartus.api.global.dto.GlobalApiResponse;
 import com.kartus.api.global.security.UserPrincipal;
@@ -29,14 +30,14 @@ public class AuthController {
     }
 
     @PostMapping("login")
-    public ResponseEntity<GlobalApiResponse<AuthResponseDTO>> login(
+    public ResponseEntity<GlobalApiResponse<LoginResponseDTO>> login(
             @Valid @RequestBody LoginRequestDTO dto
     ) {
         return ResponseEntity.ok(GlobalApiResponse.success(authService.login(dto)));
     }
 
     @PostMapping("refresh")
-    public ResponseEntity<GlobalApiResponse<AuthResponseDTO>> refresh(
+    public ResponseEntity<GlobalApiResponse<RefreshResponseDTO>> refresh(
             @RequestBody RefreshRequestDTO dto
     ) {
         return ResponseEntity.ok(GlobalApiResponse.success(authService.refresh(dto)));
