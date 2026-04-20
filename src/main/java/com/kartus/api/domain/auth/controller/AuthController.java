@@ -1,0 +1,51 @@
+package com.kartus.api.domain.auth.controller;
+
+import com.kartus.api.domain.auth.dto.request.LoginRequestDTO;
+import com.kartus.api.domain.auth.dto.request.RefreshRequestDTO;
+import com.kartus.api.domain.auth.dto.request.SignupRequestDTO;
+import com.kartus.api.domain.auth.dto.response.LoginResponseDTO;
+import com.kartus.api.domain.auth.dto.response.RefreshResponseDTO;
+import com.kartus.api.domain.auth.service.AuthService;
+import com.kartus.api.global.dto.GlobalApiResponse;
+import com.kartus.api.global.security.UserPrincipal;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    private final AuthService authService;
+
+    @PostMapping("signup")
+    public ResponseEntity<GlobalApiResponse<Void>> signup(
+            @Valid @RequestBody SignupRequestDTO dto
+    ) {
+        authService.signup(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(GlobalApiResponse.success("Sign-up completed successfully."));
+    }
+
+    @PostMapping("login")
+    public ResponseEntity<GlobalApiResponse<LoginResponseDTO>> login(
+            @Valid @RequestBody LoginRequestDTO dto
+    ) {
+        return ResponseEntity.ok(GlobalApiResponse.success(authService.login(dto)));
+    }
+
+    @PostMapping("refresh")
+    public ResponseEntity<GlobalApiResponse<RefreshResponseDTO>> refresh(
+            @RequestBody RefreshRequestDTO dto
+    ) {
+        return ResponseEntity.ok(GlobalApiResponse.success(authService.refresh(dto)));
+    }
+
+    @PostMapping("logout")
+    public ResponseEntity<GlobalApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        authService.logout(userPrincipal);
+        return ResponseEntity.ok(GlobalApiResponse.success(" completed successfully."));
+    }
+}
