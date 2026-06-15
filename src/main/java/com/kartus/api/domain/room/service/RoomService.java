@@ -3,6 +3,7 @@ package com.kartus.api.domain.room.service;
 import com.kartus.api.domain.room.dto.request.RoomCreateRequestDTO;
 import com.kartus.api.domain.room.dto.response.RoomCreateResponseDTO;
 import com.kartus.api.domain.room.dto.response.RoomJoinResponseDTO;
+import com.kartus.api.domain.room.dto.response.RoomMemberDTO;
 import com.kartus.api.domain.room.dto.response.RoomSummaryDTO;
 import com.kartus.api.domain.room.dto.response.RoomSummaryListDTO;
 import com.kartus.api.domain.room.dto.response.RoomTrackUpdateResponseDTO;
@@ -13,12 +14,15 @@ import com.kartus.api.domain.room.repository.RoomRepository;
 import com.kartus.api.domain.track.entity.Track;
 import com.kartus.api.domain.track.error.TrackErrorCode;
 import com.kartus.api.domain.track.repository.TrackRepository;
+import com.kartus.api.domain.user.entity.User;
+import com.kartus.api.domain.user.repository.UserRepository;
 import com.kartus.api.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -27,6 +31,7 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final TrackRepository trackRepository;
+    private final UserRepository userRepository; // 멤버 닉네임 조회
 
     public RoomCreateResponseDTO create(Long ownerId, RoomCreateRequestDTO dto) {
         Long defaultTrackId = trackRepository.findFirstByOrderByIdAsc()
@@ -72,8 +77,10 @@ public class RoomService {
         room.syncPlayerCount(roomMemberRepository.count(roomId));
         roomRepository.save(room);
 
+        List<RoomMemberDTO> members = getRoomMembers(roomId);
+
         return new RoomJoinResponseDTO(room.getId(), room.getTitle(),
-                room.getCurrentPlayer(), room.getMaxPlayer(), room.getTrackId());
+                room.getCurrentPlayer(), room.getMaxPlayer(), room.getTrackId(), members);
     }
 
     public RoomTrackUpdateResponseDTO updateTrack(Long userId, String roomId, Long trackId) {
@@ -118,5 +125,16 @@ public class RoomService {
 
         room.syncPlayerCount(remaining);
         roomRepository.save(room);
+    }
+
+    private List<RoomMemberDTO> getRoomMembers(String roomId) {
+        Set<String> memberIds = roomMemberRepository.getMembers(roomId);
+        if (memberIds == null || memberIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = memberIds.stream().map(Long::valueOf).toList();
+        return userRepository.findAllById(ids).stream()
+                .map(u -> new RoomMemberDTO(u.getId(), u.getNickname()))
+                .toList();
     }
 }
