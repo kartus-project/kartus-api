@@ -11,6 +11,7 @@ import com.kartus.api.domain.room.entity.Room;
 import com.kartus.api.domain.room.error.RoomErrorCode;
 import com.kartus.api.domain.room.event.RoomJoinedEvent;
 import com.kartus.api.domain.room.event.RoomLeftEvent;
+import com.kartus.api.domain.room.event.RoomOwnerChangedEvent;
 import com.kartus.api.domain.room.event.RoomTrackChangedEvent;
 import com.kartus.api.domain.room.repository.RoomMemberRepository;
 import com.kartus.api.domain.room.repository.RoomRepository;
@@ -127,15 +128,22 @@ public class RoomService {
             return;
         }
 
+        Long newOwnerId = null;
         if (room.getOwner().equals(userId)) {
-            roomMemberRepository.getMembers(roomId).stream().findFirst()
-                    .map(Long::valueOf).ifPresent(room::changeOwner);
+            newOwnerId = roomMemberRepository.getMembers(roomId).stream().findFirst()
+                    .map(Long::valueOf).orElse(null);
+            if (newOwnerId != null) {
+                room.changeOwner(newOwnerId);
+            }
         }
 
         room.syncPlayerCount(remaining);
         roomRepository.save(room);
 
         roomEventPublisher.publish(RoomLeftEvent.of(roomId, userId));
+        if (newOwnerId != null) {
+            roomEventPublisher.publish(RoomOwnerChangedEvent.of(roomId, userId, newOwnerId));
+        }
     }
 
     private List<RoomMemberDTO> getRoomMembers(String roomId) {
