@@ -9,6 +9,10 @@ import com.kartus.api.domain.room.dto.response.RoomSummaryListDTO;
 import com.kartus.api.domain.room.dto.response.RoomTrackUpdateResponseDTO;
 import com.kartus.api.domain.room.entity.Room;
 import com.kartus.api.domain.room.error.RoomErrorCode;
+import com.kartus.api.domain.room.event.RoomJoinedEvent;
+import com.kartus.api.domain.room.event.RoomLeftEvent;
+import com.kartus.api.domain.room.event.RoomOwnerChangedEvent;
+import com.kartus.api.domain.room.event.RoomTrackChangedEvent;
 import com.kartus.api.domain.room.repository.RoomMemberRepository;
 import com.kartus.api.domain.room.repository.RoomRepository;
 import com.kartus.api.domain.track.entity.Track;
@@ -31,7 +35,8 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final TrackRepository trackRepository;
-    private final UserRepository userRepository; // 멤버 닉네임 조회
+    private final UserRepository userRepository;
+    private final RoomEventPublisher roomEventPublisher;
 
     public RoomCreateResponseDTO create(Long ownerId, RoomCreateRequestDTO dto) {
         Long defaultTrackId = trackRepository.findFirstByOrderByIdAsc()
@@ -77,6 +82,8 @@ public class RoomService {
         room.syncPlayerCount(roomMemberRepository.count(roomId));
         roomRepository.save(room);
 
+        roomEventPublisher.publish(RoomJoinedEvent.of(roomId, userId));
+
         List<RoomMemberDTO> members = getRoomMembers(roomId);
 
         return new RoomJoinResponseDTO(room.getId(), room.getTitle(),
@@ -97,6 +104,8 @@ public class RoomService {
         room.changeTrack(trackId);
         roomRepository.save(room);
 
+        roomEventPublisher.publish(RoomTrackChangedEvent.of(roomId, trackId, userId));
+
         return new RoomTrackUpdateResponseDTO(roomId, trackId);
     }
 
@@ -115,16 +124,26 @@ public class RoomService {
         if (remaining <= 0) {
             roomMemberRepository.deleteRoom(roomId);
             roomRepository.deleteById(roomId);
+            roomEventPublisher.publish(RoomLeftEvent.of(roomId, userId));
             return;
         }
 
+        Long newOwnerId = null;
         if (room.getOwner().equals(userId)) {
-            roomMemberRepository.getMembers(roomId).stream().findFirst()
-                    .map(Long::valueOf).ifPresent(room::changeOwner);
+            newOwnerId = roomMemberRepository.getMembers(roomId).stream().findFirst()
+                    .map(Long::valueOf).orElse(null);
+            if (newOwnerId != null) {
+                room.changeOwner(newOwnerId);
+            }
         }
 
         room.syncPlayerCount(remaining);
         roomRepository.save(room);
+
+        roomEventPublisher.publish(RoomLeftEvent.of(roomId, userId));
+        if (newOwnerId != null) {
+            roomEventPublisher.publish(RoomOwnerChangedEvent.of(roomId, userId, newOwnerId));
+        }
     }
 
     private List<RoomMemberDTO> getRoomMembers(String roomId) {
