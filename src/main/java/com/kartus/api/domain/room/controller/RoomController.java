@@ -62,4 +62,22 @@ public class RoomController {
         roomService.leave(principal.getUserId(), roomId);
         return ResponseEntity.ok(GlobalApiResponse.success("방에서 퇴장했습니다."));
     }
+
+    @PutMapping("{roomId}/ready")
+    public ResponseEntity<GlobalApiResponse<Void>> ready(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String roomId
+    ) {
+        roomService.ready(principal.getUserId(), roomId);
+        return ResponseEntity.ok(GlobalApiResponse.success("준비 완료로 변경했습니다."));
+    }
+
+    @DeleteMapping("{roomId}/ready")
+    public ResponseEntity<GlobalApiResponse<Void>> unready(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String roomId
+    ) {
+        roomService.unready(principal.getUserId(), roomId);
+        return ResponseEntity.ok(GlobalApiResponse.success("준비를 해제했습니다."));
+    }
 }

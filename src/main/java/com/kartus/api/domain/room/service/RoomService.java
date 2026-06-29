@@ -12,7 +12,9 @@ import com.kartus.api.domain.room.error.RoomErrorCode;
 import com.kartus.api.domain.room.event.RoomJoinedEvent;
 import com.kartus.api.domain.room.event.RoomLeftEvent;
 import com.kartus.api.domain.room.event.RoomOwnerChangedEvent;
+import com.kartus.api.domain.room.event.RoomReadyEvent;
 import com.kartus.api.domain.room.event.RoomTrackChangedEvent;
+import com.kartus.api.domain.room.event.RoomUnreadyEvent;
 import com.kartus.api.domain.room.repository.RoomMemberRepository;
 import com.kartus.api.domain.room.repository.RoomRepository;
 import com.kartus.api.domain.track.entity.Track;
@@ -146,14 +148,45 @@ public class RoomService {
         }
     }
 
+    public void ready(Long userId, String roomId) {
+        if (!roomRepository.existsById(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (roomMemberRepository.addReady(roomId, userKey)) {
+            roomEventPublisher.publish(RoomReadyEvent.of(roomId, userId));
+        }
+    }
+
+    public void unready(Long userId, String roomId) {
+        if (!roomRepository.existsById(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (roomMemberRepository.removeReady(roomId, userKey)) {
+            roomEventPublisher.publish(RoomUnreadyEvent.of(roomId, userId));
+        }
+    }
+
     private List<RoomMemberDTO> getRoomMembers(String roomId) {
         Set<String> memberIds = roomMemberRepository.getMembers(roomId);
         if (memberIds == null || memberIds.isEmpty()) {
             return List.of();
         }
+        
+        Set<String> readyIds = roomMemberRepository.getReadyMembers(roomId);
+        Set<String> readySet = readyIds == null ? Set.of() : readyIds;
         List<Long> ids = memberIds.stream().map(Long::valueOf).toList();
         return userRepository.findAllById(ids).stream()
-                .map(u -> new RoomMemberDTO(u.getId(), u.getNickname()))
+                .map(u -> new RoomMemberDTO(u.getId(), u.getNickname(), readySet.contains(u.getId().toString())))
                 .toList();
     }
 }
