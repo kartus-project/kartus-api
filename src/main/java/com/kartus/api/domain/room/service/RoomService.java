@@ -26,10 +26,7 @@ import com.kartus.api.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -57,13 +54,20 @@ public class RoomService {
 
     public RoomSummaryListDTO getRoomList() {
         List<RoomSummaryDTO> rooms = new ArrayList<>();
-        roomRepository.findAll().forEach(r -> rooms.add(new RoomSummaryDTO(
+        roomRepository.findAll().forEach(r -> {
+            Optional<Track> optTrack = trackRepository.findById(r.getTrackId());
+            if (optTrack.isEmpty()) return;
+            Track track = optTrack.get();
+            
+            rooms.add(new RoomSummaryDTO(
                 r.getId(),
                 r.getTitle(), 
                 r.getCurrentPlayer(),
                 r.getMaxPlayer(),
-                r.getTrackId()
-            )));
+                r.getTrackId(),
+                track.getName()
+            ));
+        });
         return new RoomSummaryListDTO(rooms);
     }
 
