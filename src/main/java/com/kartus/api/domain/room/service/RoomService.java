@@ -189,8 +189,14 @@ public class RoomService {
         Set<String> readyIds = roomMemberRepository.getReadyMembers(roomId);
         Set<String> readySet = readyIds == null ? Set.of() : readyIds;
         List<Long> ids = memberIds.stream().map(Long::valueOf).toList();
+        Long ownerId = roomRepository.findById(roomId).get().getOwner();
         return userRepository.findAllById(ids).stream()
-                .map(u -> new RoomMemberDTO(u.getId(), u.getNickname(), readySet.contains(u.getId().toString())))
+                .map(u -> new RoomMemberDTO(
+                        u.getId(),
+                        u.getNickname(),
+                        readySet.contains(u.getId().toString()),
+                        ownerId.equals(u.getId())
+                ))
                 .toList();
     }
 }
