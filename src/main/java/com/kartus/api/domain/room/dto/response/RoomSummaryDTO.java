@@ -5,6 +5,7 @@ public record RoomSummaryDTO(
         String title,
         Short currentPlayer,
         Short maxPlayer,
-        Long trackId
+        Long trackId,
+        String trackName
 ) {
 }
