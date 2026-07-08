@@ -9,7 +9,7 @@ public record RoomCreateRequestDTO(
         @NotBlank
         String title,
 
-        @Min(1)
+        @Min(2)
         @Max(4)
         @NotNull
         Short maxPlayer
