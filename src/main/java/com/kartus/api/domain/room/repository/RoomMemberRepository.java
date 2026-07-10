@@ -63,6 +63,16 @@ public class RoomMemberRepository {
         return stringRedisTemplate.opsForSet().members(roomKey(roomId));
     }
 
+    public boolean areAllMembersReady(String roomId) {
+        if (count(roomId) <= 0) {
+            return false;
+        }
+
+        Set<String> notReadyMembers = stringRedisTemplate.opsForSet()
+                .difference(roomKey(roomId), readyKey(roomId));
+        return notReadyMembers != null && notReadyMembers.isEmpty();
+    }
+
     public long count(String roomId) {
         Long size = stringRedisTemplate.opsForSet().size(roomKey(roomId));
         return size == null ? 0 : size;

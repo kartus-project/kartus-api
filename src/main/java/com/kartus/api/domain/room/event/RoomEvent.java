@@ -2,7 +2,7 @@ package com.kartus.api.domain.room.event;
 
 import java.time.Instant;
 
-public sealed interface RoomEvent permits RoomJoinedEvent, RoomLeftEvent, RoomTrackChangedEvent, RoomOwnerChangedEvent, RoomReadyEvent, RoomUnreadyEvent {
+public sealed interface RoomEvent permits RoomJoinedEvent, RoomLeftEvent, RoomTrackChangedEvent, RoomOwnerChangedEvent, RoomReadyEvent, RoomUnreadyEvent, RoomGameStartedEvent {
     RoomEventType eventType();
 
     String roomId();
