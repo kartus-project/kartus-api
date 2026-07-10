@@ -80,4 +80,13 @@ public class RoomController {
         roomService.unready(principal.getUserId(), roomId);
         return ResponseEntity.ok(GlobalApiResponse.success("준비를 해제했습니다."));
     }
+
+    @PostMapping("{roomId}/start")
+    public ResponseEntity<GlobalApiResponse<Void>> start(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String roomId
+    ) {
+        roomService.start(principal.getUserId(), roomId);
+        return ResponseEntity.ok(GlobalApiResponse.success("게임을 시작했습니다."));
+    }
 }

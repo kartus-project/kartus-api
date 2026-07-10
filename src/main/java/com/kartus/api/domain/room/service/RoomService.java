@@ -9,6 +9,7 @@ import com.kartus.api.domain.room.dto.response.RoomSummaryListDTO;
 import com.kartus.api.domain.room.dto.response.RoomTrackUpdateResponseDTO;
 import com.kartus.api.domain.room.entity.Room;
 import com.kartus.api.domain.room.error.RoomErrorCode;
+import com.kartus.api.domain.room.event.RoomGameStartedEvent;
 import com.kartus.api.domain.room.event.RoomJoinedEvent;
 import com.kartus.api.domain.room.event.RoomLeftEvent;
 import com.kartus.api.domain.room.event.RoomOwnerChangedEvent;
@@ -178,6 +179,26 @@ public class RoomService {
         if (roomMemberRepository.removeReady(roomId, userKey)) {
             roomEventPublisher.publish(RoomUnreadyEvent.of(roomId, userId));
         }
+    }
+
+    public void start(Long userId, String roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        if (!room.getOwner().equals(userId)) {
+            throw new CustomException(RoomErrorCode.NOT_ROOM_OWNER);
+        }
+
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (!roomMemberRepository.areAllMembersReady(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_MEMBERS_NOT_READY);
+        }
+
+        roomEventPublisher.publish(RoomGameStartedEvent.of(roomId, userId));
     }
 
     private List<RoomMemberDTO> getRoomMembers(String roomId) {

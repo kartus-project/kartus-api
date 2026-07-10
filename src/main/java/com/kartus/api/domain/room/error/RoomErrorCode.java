@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public enum RoomErrorCode implements ErrorCode {
+    ROOM_MEMBERS_NOT_READY(HttpStatus.CONFLICT, "모든 멤버가 준비 상태여야 합니다."),
     ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다."),
     ROOM_FULL(HttpStatus.CONFLICT, "방이 가득 찼습니다."),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참가한 방입니다."),

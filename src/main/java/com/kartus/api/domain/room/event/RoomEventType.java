@@ -6,5 +6,6 @@ public enum RoomEventType {
     ROOM_TRACK_CHANGED,
     ROOM_OWNER_CHANGED,
     ROOM_READY,
-    ROOM_UNREADY
+    ROOM_UNREADY,
+    ROOM_GAME_STARTED
 }
