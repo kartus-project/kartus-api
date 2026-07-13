@@ -59,6 +59,11 @@ public class RoomMemberRepository {
         return stringRedisTemplate.opsForSet().isMember(roomKey(roomId), userId);
     }
 
+    public boolean isInAnyRoom(String userId) {
+        Long size = stringRedisTemplate.opsForSet().size(userKey(userId));
+        return size != null && size > 0;
+    }
+
     public Set<String> getMembers(String roomId) {
         return stringRedisTemplate.opsForSet().members(roomKey(roomId));
     }
@@ -78,10 +83,18 @@ public class RoomMemberRepository {
         return size == null ? 0 : size;
     }
 
-    // 고아 발생 위험 있음
-    // RedisTemplate raw DEL을 MULTI/EXEC로 묶어서 방지 가능
     public void deleteRoom(String roomId) {
-        stringRedisTemplate.delete(roomKey(roomId));
-        stringRedisTemplate.delete(readyKey(roomId));
+        Set<String> memberIds = getMembers(roomId);
+
+        stringRedisTemplate.executePipelined((RedisCallback<Object>) conn -> {
+            if (memberIds != null) {
+                for (String memberId : memberIds) {
+                    conn.sRem(userKey(memberId).getBytes(), roomId.getBytes());
+                }
+            }
+            conn.del(roomKey(roomId).getBytes());
+            conn.del(readyKey(roomId).getBytes());
+            return null;
+        });
     }
 }
