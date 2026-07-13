@@ -39,6 +39,11 @@ public class RoomService {
     private final RoomEventPublisher roomEventPublisher;
 
     public RoomCreateResponseDTO create(Long ownerId, RoomCreateRequestDTO dto) {
+        String ownerKey = ownerId.toString();
+        if (roomMemberRepository.isInAnyRoom(ownerKey)) {
+            throw new CustomException(RoomErrorCode.ALREADY_IN_ANOTHER_ROOM);
+        }
+
         Long defaultTrackId = trackRepository.findFirstByOrderByIdAsc()
                 .map(Track::getId)
                 .orElseThrow(() -> new CustomException(TrackErrorCode.TRACK_NOT_FOUND));
@@ -46,7 +51,7 @@ public class RoomService {
         String roomId = UUID.randomUUID().toString();
         Room room = Room.create(roomId, ownerId, dto.title(), dto.maxPlayer(), defaultTrackId);
 
-        roomMemberRepository.join(roomId, ownerId.toString());
+        roomMemberRepository.join(roomId, ownerKey);
         room.syncPlayerCount(roomMemberRepository.count(roomId));
         roomRepository.save(room);
 
@@ -79,6 +84,10 @@ public class RoomService {
         String userKey = userId.toString();
         if (roomMemberRepository.isMember(roomId, userKey)) {
             throw new CustomException(RoomErrorCode.ALREADY_JOINED);
+        }
+
+        if (roomMemberRepository.isInAnyRoom(userKey)) {
+            throw new CustomException(RoomErrorCode.ALREADY_IN_ANOTHER_ROOM);
         }
 
         if (room.getCurrentPlayer() >= room.getMaxPlayer()) {
