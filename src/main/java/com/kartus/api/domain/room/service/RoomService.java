@@ -141,12 +141,15 @@ public class RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
 
-        String userKey = userId.toString();
-        if (!roomMemberRepository.isMember(roomId, userKey)) {
+        if (!roomMemberRepository.isMember(roomId, userId.toString())) {
             throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
         }
 
-        roomMemberRepository.leave(roomId, userKey);
+        removeMember(room, userId, roomId);
+    }
+
+    private void removeMember(Room room, Long userId, String roomId) {
+        roomMemberRepository.leave(roomId, userId.toString());
         long remaining = roomMemberRepository.count(roomId);
 
         if (remaining <= 0) {
