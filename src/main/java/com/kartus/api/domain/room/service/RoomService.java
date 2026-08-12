@@ -26,10 +26,12 @@ import com.kartus.api.domain.user.entity.User;
 import com.kartus.api.domain.user.repository.UserRepository;
 import com.kartus.api.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomService {
@@ -146,6 +148,21 @@ public class RoomService {
         }
 
         removeMember(room, userId, roomId);
+    }
+
+    public void cleanupMember(Long userId, String roomId) {
+        Optional<Room> optRoom = roomRepository.findById(roomId);
+        if (optRoom.isEmpty()) {
+            log.debug("[RoomCleanup] 정리할 방이 없습니다. roomId={}, userId={}", roomId, userId);
+            return;
+        }
+
+        if (!roomMemberRepository.isMember(roomId, userId.toString())) {
+            log.debug("[RoomCleanup] 방에 참여하고 있지 않습니다. roomId={}, userId={}", roomId, userId);
+            return;
+        }
+
+        removeMember(optRoom.get(), userId, roomId);
     }
 
     private void removeMember(Room room, Long userId, String roomId) {
