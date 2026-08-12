@@ -4,6 +4,7 @@ public record RoomCreateResponseDTO(
         String roomId,
         String title,
         Short maxPlayer,
-        Long trackId
+        Long trackId,
+        String ticket
 ) {
 }
