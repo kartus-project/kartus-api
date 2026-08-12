@@ -59,7 +59,16 @@ public class RoomService {
         room.syncPlayerCount(roomMemberRepository.count(roomId));
         roomRepository.save(room);
 
-        return new RoomCreateResponseDTO(roomId, room.getTitle(), room.getMaxPlayer(), room.getTrackId());
+        String ticket;
+        try {
+            ticket = ticketService.issue(ownerId, roomId);
+        } catch (Exception e) {
+            roomMemberRepository.deleteRoom(roomId);
+            roomRepository.deleteById(roomId);
+            throw e;
+        }
+
+        return new RoomCreateResponseDTO(roomId, room.getTitle(), room.getMaxPlayer(), room.getTrackId(), ticket);
     }
 
     public RoomSummaryListDTO getRoomList() {
