@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import javax.naming.AuthenticationException;
@@ -27,6 +28,18 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         log.warn("[{}] {}", ex.getClass().getSimpleName(), msg);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(GlobalApiResponse.fail(HttpStatus.BAD_REQUEST, msg));
+    }
+
+    // path variable, request param type mismatch
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<GlobalApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex){
+        String msg = "'" + ex.getName() + "' 값의 형식이 올바르지 않습니다.";
+
+        log.warn("[{}] {}", ex.getClass().getSimpleName(), ex.getMessage());
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
