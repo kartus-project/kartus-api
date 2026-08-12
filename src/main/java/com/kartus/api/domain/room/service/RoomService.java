@@ -18,6 +18,7 @@ import com.kartus.api.domain.room.event.RoomTrackChangedEvent;
 import com.kartus.api.domain.room.event.RoomUnreadyEvent;
 import com.kartus.api.domain.room.repository.RoomMemberRepository;
 import com.kartus.api.domain.room.repository.RoomRepository;
+import com.kartus.api.domain.ticket.service.TicketService;
 import com.kartus.api.domain.track.entity.Track;
 import com.kartus.api.domain.track.error.TrackErrorCode;
 import com.kartus.api.domain.track.repository.TrackRepository;
@@ -37,6 +38,7 @@ public class RoomService {
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
     private final RoomEventPublisher roomEventPublisher;
+    private final TicketService ticketService;
 
     public RoomCreateResponseDTO create(Long ownerId, RoomCreateRequestDTO dto) {
         String ownerKey = ownerId.toString();
@@ -98,12 +100,22 @@ public class RoomService {
         room.syncPlayerCount(roomMemberRepository.count(roomId));
         roomRepository.save(room);
 
+        String ticket;
+        try {
+            ticket = ticketService.issue(userId, roomId);
+        } catch (Exception e) {
+            roomMemberRepository.leave(roomId, userKey);
+            room.syncPlayerCount(roomMemberRepository.count(roomId));
+            roomRepository.save(room);
+            throw e;
+        }
+
         roomEventPublisher.publish(RoomJoinedEvent.of(roomId, userId));
 
         List<RoomMemberDTO> members = getRoomMembers(roomId);
 
         return new RoomJoinResponseDTO(room.getId(), room.getTitle(),
-                room.getCurrentPlayer(), room.getMaxPlayer(), room.getTrackId(), members);
+                room.getCurrentPlayer(), room.getMaxPlayer(), room.getTrackId(), members, ticket);
     }
 
     public RoomTrackUpdateResponseDTO updateTrack(Long userId, String roomId, Long trackId) {
