@@ -8,6 +8,7 @@ public record RoomJoinResponseDTO(
         Short currentPlayer,
         Short maxPlayer,
         Long trackId,
-        List<RoomMemberDTO> members
+        List<RoomMemberDTO> members,
+        String ticket
 ) {
 }
