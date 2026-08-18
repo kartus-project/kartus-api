@@ -1,6 +1,6 @@
 package com.kartus.api.domain.user.controller;
 
-import com.kartus.api.domain.user.UserService;
+import com.kartus.api.domain.user.service.UserService;
 import com.kartus.api.domain.user.dto.response.UserInfoResponseDTO;
 import com.kartus.api.global.dto.GlobalApiResponse;
 import lombok.RequiredArgsConstructor;

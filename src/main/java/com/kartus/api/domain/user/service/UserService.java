@@ -1,4 +1,4 @@
-package com.kartus.api.domain.user;
+package com.kartus.api.domain.user.service;
 
 import com.kartus.api.domain.user.dto.response.UserInfoResponseDTO;
 import com.kartus.api.domain.user.entity.User;
