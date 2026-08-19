@@ -1,6 +1,7 @@
 package com.kartus.api.domain.client.service;
 
 import com.kartus.api.domain.client.dto.ClientManifestDTO;
+import com.kartus.api.domain.client.dto.response.ClientVersionResponseDTO;
 import com.kartus.api.domain.client.error.ClientErrorCode;
 import com.kartus.api.global.exception.CustomException;
 import lombok.extern.slf4j.Slf4j;
@@ -13,17 +14,20 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.JacksonIOException;
 import tools.jackson.databind.ObjectMapper;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 
 @Slf4j
 @Service
-public class ClientDownloadService {
+public class ClientService {
     private static final String MANIFEST_FILE_NAME = "manifest.json";
 
     private final ObjectMapper objectMapper;
     private final Path basePath;
 
-    public ClientDownloadService(
+    public ClientService(
             ObjectMapper objectMapper,
             @Value("${client.download.base-path}") String basePath
     ) {
@@ -44,15 +48,7 @@ public class ClientDownloadService {
         ClientManifestDTO manifest = readManifest();
 
         String version = requireText(manifest.version());
-
-        if (manifest.platforms() == null) {
-            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
-        }
-
-        ClientManifestDTO.PlatformDTO entry = manifest.platforms().get(platform);
-        if (entry == null) {
-            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
-        }
+        ClientManifestDTO.PlatformDTO entry = findPlatformEntry(manifest, platform);
 
         String fileName = requireText(entry.fileName());
         Path file = resolveSafely(version, fileName);
@@ -66,6 +62,31 @@ public class ClientDownloadService {
         return new ClientDownload(resource, fileName);
     }
 
+    public ClientVersionResponseDTO findLatestVersion(String platform) {
+        if (!StringUtils.hasText(platform)) {
+            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
+        }
+
+        ClientManifestDTO manifest = readManifest();
+
+        String version = requireText(manifest.version());
+
+        Instant pubDate = manifest.pubDate();
+        if (pubDate == null) {
+            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
+        }
+
+        ClientManifestDTO.PlatformDTO entry = findPlatformEntry(manifest, platform);
+        String signature = requireText(entry.signature());
+
+        return new ClientVersionResponseDTO(
+                version,
+                pubDate,
+                "/api/client/download?platform=" + URLEncoder.encode(platform, StandardCharsets.UTF_8),
+                signature
+        );
+    }
+
     private ClientManifestDTO readManifest() {
         try {
             return objectMapper.readValue(basePath.resolve(MANIFEST_FILE_NAME), ClientManifestDTO.class);
@@ -75,6 +96,19 @@ public class ClientDownloadService {
                     ? ClientErrorCode.MANIFEST_NOT_READABLE
                     : ClientErrorCode.MANIFEST_INVALID);
         }
+    }
+
+    private ClientManifestDTO.PlatformDTO findPlatformEntry(ClientManifestDTO manifest, String platform) {
+        if (manifest.platforms() == null) {
+            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
+        }
+
+        ClientManifestDTO.PlatformDTO entry = manifest.platforms().get(platform);
+        if (entry == null) {
+            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
+        }
+
+        return entry;
     }
 
     private String requireText(String value) {
