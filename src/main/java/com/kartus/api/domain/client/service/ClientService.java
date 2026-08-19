@@ -1,6 +1,7 @@
 package com.kartus.api.domain.client.service;
 
 import com.kartus.api.domain.client.dto.ClientManifestDTO;
+import com.kartus.api.domain.client.dto.response.ClientVersionResponseDTO;
 import com.kartus.api.domain.client.error.ClientErrorCode;
 import com.kartus.api.global.exception.CustomException;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +14,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.JacksonIOException;
 import tools.jackson.databind.ObjectMapper;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 
 @Slf4j
 @Service
@@ -56,6 +60,31 @@ public class ClientService {
         }
 
         return new ClientDownload(resource, fileName);
+    }
+
+    public ClientVersionResponseDTO findLatestVersion(String platform) {
+        if (!StringUtils.hasText(platform)) {
+            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
+        }
+
+        ClientManifestDTO manifest = readManifest();
+
+        String version = requireText(manifest.version());
+
+        Instant pubDate = manifest.pubDate();
+        if (pubDate == null) {
+            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
+        }
+
+        ClientManifestDTO.PlatformDTO entry = findPlatformEntry(manifest, platform);
+        String signature = requireText(entry.signature());
+
+        return new ClientVersionResponseDTO(
+                version,
+                pubDate,
+                "/api/client/download?platform=" + URLEncoder.encode(platform, StandardCharsets.UTF_8),
+                signature
+        );
     }
 
     private ClientManifestDTO readManifest() {

@@ -1,6 +1,8 @@
 package com.kartus.api.domain.client.controller;
 
+import com.kartus.api.domain.client.dto.response.ClientVersionResponseDTO;
 import com.kartus.api.domain.client.service.ClientService;
+import com.kartus.api.global.dto.GlobalApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -30,5 +32,10 @@ public class ClientController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .body(download.resource());
+    }
+
+    @GetMapping("version")
+    public ResponseEntity<GlobalApiResponse<ClientVersionResponseDTO>> version(@RequestParam String platform) {
+        return ResponseEntity.ok(GlobalApiResponse.success(clientService.findLatestVersion(platform)));
     }
 }
