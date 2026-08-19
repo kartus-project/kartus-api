@@ -17,13 +17,13 @@ import java.nio.file.Path;
 
 @Slf4j
 @Service
-public class ClientDownloadService {
+public class ClientService {
     private static final String MANIFEST_FILE_NAME = "manifest.json";
 
     private final ObjectMapper objectMapper;
     private final Path basePath;
 
-    public ClientDownloadService(
+    public ClientService(
             ObjectMapper objectMapper,
             @Value("${client.download.base-path}") String basePath
     ) {
@@ -44,15 +44,7 @@ public class ClientDownloadService {
         ClientManifestDTO manifest = readManifest();
 
         String version = requireText(manifest.version());
-
-        if (manifest.platforms() == null) {
-            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
-        }
-
-        ClientManifestDTO.PlatformDTO entry = manifest.platforms().get(platform);
-        if (entry == null) {
-            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
-        }
+        ClientManifestDTO.PlatformDTO entry = findPlatformEntry(manifest, platform);
 
         String fileName = requireText(entry.fileName());
         Path file = resolveSafely(version, fileName);
@@ -75,6 +67,19 @@ public class ClientDownloadService {
                     ? ClientErrorCode.MANIFEST_NOT_READABLE
                     : ClientErrorCode.MANIFEST_INVALID);
         }
+    }
+
+    private ClientManifestDTO.PlatformDTO findPlatformEntry(ClientManifestDTO manifest, String platform) {
+        if (manifest.platforms() == null) {
+            throw new CustomException(ClientErrorCode.MANIFEST_INVALID);
+        }
+
+        ClientManifestDTO.PlatformDTO entry = manifest.platforms().get(platform);
+        if (entry == null) {
+            throw new CustomException(ClientErrorCode.PLATFORM_NOT_AVAILABLE);
+        }
+
+        return entry;
     }
 
     private String requireText(String value) {
