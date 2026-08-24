@@ -1,0 +1,273 @@
+package com.kartus.api.domain.room.service;
+
+import com.kartus.api.domain.room.dto.request.RoomCreateRequestDTO;
+import com.kartus.api.domain.room.dto.response.RoomCreateResponseDTO;
+import com.kartus.api.domain.room.dto.response.RoomJoinResponseDTO;
+import com.kartus.api.domain.room.dto.response.RoomMemberDTO;
+import com.kartus.api.domain.room.dto.response.RoomSummaryDTO;
+import com.kartus.api.domain.room.dto.response.RoomSummaryListDTO;
+import com.kartus.api.domain.room.dto.response.RoomTrackUpdateResponseDTO;
+import com.kartus.api.domain.room.entity.Room;
+import com.kartus.api.domain.room.error.RoomErrorCode;
+import com.kartus.api.domain.room.event.RoomGameStartedEvent;
+import com.kartus.api.domain.room.event.RoomJoinedEvent;
+import com.kartus.api.domain.room.event.RoomLeftEvent;
+import com.kartus.api.domain.room.event.RoomOwnerChangedEvent;
+import com.kartus.api.domain.room.event.RoomReadyEvent;
+import com.kartus.api.domain.room.event.RoomTrackChangedEvent;
+import com.kartus.api.domain.room.event.RoomUnreadyEvent;
+import com.kartus.api.domain.room.repository.RoomMemberRepository;
+import com.kartus.api.domain.room.repository.RoomRepository;
+import com.kartus.api.domain.ticket.service.TicketService;
+import com.kartus.api.domain.track.entity.Track;
+import com.kartus.api.domain.track.error.TrackErrorCode;
+import com.kartus.api.domain.track.repository.TrackRepository;
+import com.kartus.api.domain.user.entity.User;
+import com.kartus.api.domain.user.repository.UserRepository;
+import com.kartus.api.global.exception.CustomException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class RoomService {
+    private final RoomRepository roomRepository;
+    private final RoomMemberRepository roomMemberRepository;
+    private final TrackRepository trackRepository;
+    private final UserRepository userRepository;
+    private final RoomEventPublisher roomEventPublisher;
+    private final TicketService ticketService;
+
+    public RoomCreateResponseDTO create(Long ownerId, RoomCreateRequestDTO dto) {
+        String ownerKey = ownerId.toString();
+        if (roomMemberRepository.isInAnyRoom(ownerKey)) {
+            throw new CustomException(RoomErrorCode.ALREADY_IN_ANOTHER_ROOM);
+        }
+
+        Long defaultTrackId = trackRepository.findFirstByOrderByIdAsc()
+                .map(Track::getId)
+                .orElseThrow(() -> new CustomException(TrackErrorCode.TRACK_NOT_FOUND));
+
+        String roomId = UUID.randomUUID().toString();
+        Room room = Room.create(roomId, ownerId, dto.title(), dto.maxPlayer(), defaultTrackId);
+
+        roomMemberRepository.join(roomId, ownerKey);
+        room.syncPlayerCount(roomMemberRepository.count(roomId));
+        roomRepository.save(room);
+
+        String ticket;
+        try {
+            ticket = ticketService.issue(ownerId, roomId);
+        } catch (Exception e) {
+            roomMemberRepository.deleteRoom(roomId);
+            roomRepository.deleteById(roomId);
+            throw e;
+        }
+
+        return new RoomCreateResponseDTO(roomId, room.getTitle(), room.getMaxPlayer(), room.getTrackId(), ticket);
+    }
+
+    public RoomSummaryListDTO getRoomList() {
+        List<RoomSummaryDTO> rooms = new ArrayList<>();
+        roomRepository.findAll().forEach(r -> {
+            Optional<Track> optTrack = trackRepository.findById(r.getTrackId());
+            if (optTrack.isEmpty()) return;
+            Track track = optTrack.get();
+            
+            rooms.add(new RoomSummaryDTO(
+                r.getId(),
+                r.getTitle(), 
+                r.getCurrentPlayer(),
+                r.getMaxPlayer(),
+                r.getTrackId(),
+                track.getName()
+            ));
+        });
+        return new RoomSummaryListDTO(rooms);
+    }
+
+    public RoomJoinResponseDTO join(Long userId, String roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        String userKey = userId.toString();
+        if (roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.ALREADY_JOINED);
+        }
+
+        if (roomMemberRepository.isInAnyRoom(userKey)) {
+            throw new CustomException(RoomErrorCode.ALREADY_IN_ANOTHER_ROOM);
+        }
+
+        if (room.getCurrentPlayer() >= room.getMaxPlayer()) {
+            throw new CustomException(RoomErrorCode.ROOM_FULL);
+        }
+
+        roomMemberRepository.join(roomId, userKey);
+        room.syncPlayerCount(roomMemberRepository.count(roomId));
+        roomRepository.save(room);
+
+        String ticket;
+        try {
+            ticket = ticketService.issue(userId, roomId);
+        } catch (Exception e) {
+            roomMemberRepository.leave(roomId, userKey);
+            room.syncPlayerCount(roomMemberRepository.count(roomId));
+            roomRepository.save(room);
+            throw e;
+        }
+
+        roomEventPublisher.publish(RoomJoinedEvent.of(roomId, userId));
+
+        List<RoomMemberDTO> members = getRoomMembers(roomId);
+
+        return new RoomJoinResponseDTO(room.getId(), room.getTitle(),
+                room.getCurrentPlayer(), room.getMaxPlayer(), room.getTrackId(), members, ticket);
+    }
+
+    public RoomTrackUpdateResponseDTO updateTrack(Long userId, String roomId, Long trackId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        if (!room.getOwner().equals(userId)) {
+            throw new CustomException(RoomErrorCode.NOT_ROOM_OWNER);
+        }
+        if (!trackRepository.existsById(trackId)) {
+            throw new CustomException(TrackErrorCode.TRACK_NOT_FOUND);
+        }
+
+        room.changeTrack(trackId);
+        roomRepository.save(room);
+
+        roomEventPublisher.publish(RoomTrackChangedEvent.of(roomId, trackId, userId));
+
+        return new RoomTrackUpdateResponseDTO(roomId, trackId);
+    }
+
+    public void leave(Long userId, String roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        if (!roomMemberRepository.isMember(roomId, userId.toString())) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        removeMember(room, userId, roomId);
+    }
+
+    public void cleanupMember(Long userId, String roomId) {
+        Optional<Room> optRoom = roomRepository.findById(roomId);
+        if (optRoom.isEmpty()) {
+            log.debug("[RoomCleanup] 정리할 방이 없습니다. roomId={}, userId={}", roomId, userId);
+            return;
+        }
+
+        if (!roomMemberRepository.isMember(roomId, userId.toString())) {
+            log.debug("[RoomCleanup] 방에 참여하고 있지 않습니다. roomId={}, userId={}", roomId, userId);
+            return;
+        }
+
+        removeMember(optRoom.get(), userId, roomId);
+    }
+
+    private void removeMember(Room room, Long userId, String roomId) {
+        roomMemberRepository.leave(roomId, userId.toString());
+        long remaining = roomMemberRepository.count(roomId);
+
+        if (remaining <= 0) {
+            roomMemberRepository.deleteRoom(roomId);
+            roomRepository.deleteById(roomId);
+            roomEventPublisher.publish(RoomLeftEvent.of(roomId, userId));
+            return;
+        }
+
+        Long newOwnerId = null;
+        if (room.getOwner().equals(userId)) {
+            newOwnerId = roomMemberRepository.getMembers(roomId).stream().findFirst()
+                    .map(Long::valueOf).orElse(null);
+            if (newOwnerId != null) {
+                room.changeOwner(newOwnerId);
+            }
+        }
+
+        room.syncPlayerCount(remaining);
+        roomRepository.save(room);
+
+        roomEventPublisher.publish(RoomLeftEvent.of(roomId, userId));
+        if (newOwnerId != null) {
+            roomEventPublisher.publish(RoomOwnerChangedEvent.of(roomId, userId, newOwnerId));
+        }
+    }
+
+    public void ready(Long userId, String roomId) {
+        if (!roomRepository.existsById(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (roomMemberRepository.addReady(roomId, userKey)) {
+            roomEventPublisher.publish(RoomReadyEvent.of(roomId, userId));
+        }
+    }
+
+    public void unready(Long userId, String roomId) {
+        if (!roomRepository.existsById(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (roomMemberRepository.removeReady(roomId, userKey)) {
+            roomEventPublisher.publish(RoomUnreadyEvent.of(roomId, userId));
+        }
+    }
+
+    public void start(Long userId, String roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        if (!room.getOwner().equals(userId)) {
+            throw new CustomException(RoomErrorCode.NOT_ROOM_OWNER);
+        }
+
+        String userKey = userId.toString();
+        if (!roomMemberRepository.isMember(roomId, userKey)) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        if (!roomMemberRepository.areAllMembersReady(roomId)) {
+            throw new CustomException(RoomErrorCode.ROOM_MEMBERS_NOT_READY);
+        }
+
+        roomEventPublisher.publish(RoomGameStartedEvent.of(roomId, userId));
+    }
+
+    private List<RoomMemberDTO> getRoomMembers(String roomId) {
+        Set<String> memberIds = roomMemberRepository.getMembers(roomId);
+        if (memberIds == null || memberIds.isEmpty()) {
+            return List.of();
+        }
+        
+        Set<String> readyIds = roomMemberRepository.getReadyMembers(roomId);
+        Set<String> readySet = readyIds == null ? Set.of() : readyIds;
+        List<Long> ids = memberIds.stream().map(Long::valueOf).toList();
+        Long ownerId = roomRepository.findById(roomId).get().getOwner();
+        return userRepository.findAllById(ids).stream()
+                .map(u -> new RoomMemberDTO(
+                        u.getId(),
+                        u.getNickname(),
+                        readySet.contains(u.getId().toString()),
+                        ownerId.equals(u.getId())
+                ))
+                .toList();
+    }
+}
