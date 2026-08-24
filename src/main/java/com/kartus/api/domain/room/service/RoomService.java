@@ -239,6 +239,10 @@ public class RoomService {
             throw new CustomException(RoomErrorCode.NOT_ROOM_OWNER);
         }
 
+        if (room.isStarted()) {
+            throw new CustomException(RoomErrorCode.GAME_ALREADY_STARTED);
+        }
+
         String userKey = userId.toString();
         if (!roomMemberRepository.isMember(roomId, userKey)) {
             throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
@@ -247,6 +251,9 @@ public class RoomService {
         if (!roomMemberRepository.areAllMembersReady(roomId)) {
             throw new CustomException(RoomErrorCode.ROOM_MEMBERS_NOT_READY);
         }
+
+        room.start();
+        roomRepository.save(room);
 
         roomEventPublisher.publish(RoomGameStartedEvent.of(roomId, userId));
     }
