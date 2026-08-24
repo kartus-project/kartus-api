@@ -74,6 +74,8 @@ public class RoomService {
     public RoomSummaryListDTO getRoomList() {
         List<RoomSummaryDTO> rooms = new ArrayList<>();
         roomRepository.findAll().forEach(r -> {
+            if (r.isStarted()) return;
+
             Optional<Track> optTrack = trackRepository.findById(r.getTrackId());
             if (optTrack.isEmpty()) return;
             Track track = optTrack.get();
@@ -101,6 +103,10 @@ public class RoomService {
 
         if (roomMemberRepository.isInAnyRoom(userKey)) {
             throw new CustomException(RoomErrorCode.ALREADY_IN_ANOTHER_ROOM);
+        }
+
+        if (room.isStarted()) {
+            throw new CustomException(RoomErrorCode.GAME_ALREADY_STARTED);
         }
 
         if (room.getCurrentPlayer() >= room.getMaxPlayer()) {
