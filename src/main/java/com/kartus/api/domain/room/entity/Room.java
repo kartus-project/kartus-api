@@ -1,5 +1,6 @@
 package com.kartus.api.domain.room.entity;
 
+import com.kartus.api.domain.room.enums.RoomStatus;
 import lombok.Getter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
@@ -15,6 +16,7 @@ public class Room {
     private Short maxPlayer;
     private Short currentPlayer;
     private Long trackId;
+    private RoomStatus status;
 
     @TimeToLive
     private Long ttl;
@@ -29,6 +31,7 @@ public class Room {
         room.maxPlayer = maxPlayer;
         room.trackId = trackId;
         room.currentPlayer = 0;
+        room.status = RoomStatus.WAITING;
         room.ttl = null;
         return room;
     }
@@ -43,5 +46,13 @@ public class Room {
 
     public void changeTrack(Long trackId) {
         this.trackId = trackId;
+    }
+
+    public void start() {
+        this.status = RoomStatus.STARTED;
+    }
+
+    public boolean isStarted() {
+        return this.status == RoomStatus.STARTED;
     }
 }
