@@ -1,0 +1,25 @@
+# 빌드 산출물 / 캐시
+build/
+.gradle/
+out/
+bin/
+
+# VCS / IDE
+.git/
+.gitignore
+.gitattributes
+.github/
+.idea/
+.vscode/
+*.iml
+
+# 시크릿
+.env
+.env.*
+
+# 런타임 데이터 (볼륨으로 마운트)
+/client/
+
+# 문서
+README.md
+HELP.md
