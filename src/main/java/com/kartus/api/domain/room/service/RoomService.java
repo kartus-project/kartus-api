@@ -2,6 +2,7 @@ package com.kartus.api.domain.room.service;
 
 import com.kartus.api.domain.room.dto.request.RoomCreateRequestDTO;
 import com.kartus.api.domain.room.dto.response.RoomCreateResponseDTO;
+import com.kartus.api.domain.room.dto.response.RoomDetailResponseDTO;
 import com.kartus.api.domain.room.dto.response.RoomJoinResponseDTO;
 import com.kartus.api.domain.room.dto.response.RoomMemberDTO;
 import com.kartus.api.domain.room.dto.response.RoomSummaryDTO;
@@ -90,6 +91,28 @@ public class RoomService {
             ));
         });
         return new RoomSummaryListDTO(rooms);
+    }
+
+    public RoomDetailResponseDTO getRoomDetail(Long userId, String roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(RoomErrorCode.ROOM_NOT_FOUND));
+
+        if (!roomMemberRepository.isMember(roomId, userId.toString())) {
+            throw new CustomException(RoomErrorCode.NOT_A_MEMBER);
+        }
+
+        Track track = trackRepository.findById(room.getTrackId())
+                .orElseThrow(() -> new CustomException(TrackErrorCode.TRACK_NOT_FOUND));
+
+        return new RoomDetailResponseDTO(
+                room.getId(),
+                room.getTitle(),
+                room.getCurrentPlayer(),
+                room.getMaxPlayer(),
+                room.getTrackId(),
+                track.getName(),
+                getRoomMembers(roomId)
+        );
     }
 
     public RoomJoinResponseDTO join(Long userId, String roomId) {
