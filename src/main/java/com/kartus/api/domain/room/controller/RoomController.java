@@ -3,6 +3,7 @@ package com.kartus.api.domain.room.controller;
 import com.kartus.api.domain.room.dto.request.RoomCreateRequestDTO;
 import com.kartus.api.domain.room.dto.request.RoomTrackUpdateRequestDTO;
 import com.kartus.api.domain.room.dto.response.RoomCreateResponseDTO;
+import com.kartus.api.domain.room.dto.response.RoomDetailResponseDTO;
 import com.kartus.api.domain.room.dto.response.RoomJoinResponseDTO;
 import com.kartus.api.domain.room.dto.response.RoomSummaryListDTO;
 import com.kartus.api.domain.room.dto.response.RoomTrackUpdateResponseDTO;
@@ -34,6 +35,15 @@ public class RoomController {
     @GetMapping
     public ResponseEntity<GlobalApiResponse<RoomSummaryListDTO>> getRoomList() {
         return ResponseEntity.ok(GlobalApiResponse.success(roomService.getRoomList()));
+    }
+
+    @GetMapping("{roomId}")
+    public ResponseEntity<GlobalApiResponse<RoomDetailResponseDTO>> getRoomDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String roomId
+    ) {
+        return ResponseEntity.ok(GlobalApiResponse.success(
+                roomService.getRoomDetail(principal.getUserId(), roomId)));
     }
 
     @PostMapping("{roomId}/join")
